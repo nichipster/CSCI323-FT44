@@ -1,0 +1,38 @@
+# Python dependencies for CSCI323 AlphaGo Project
+
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+tensorboard>=2.13.0
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.14.0
+
+# Go Game Logic
+sgfmill>=1.1.1
+# Alternative: python-goban
+
+# Utilities
+tqdm>=4.65.0
+pyyaml>=6.0
+python-dateutil>=2.8.2
+
+# Testing (optional)
+pytest>=7.3.0
+pytest-cov>=4.1.0
+
+# Code Quality (optional)
+black>=23.3.0
+flake8>=6.0.0
+isort>=5.12.0
+
+# Jupyter (for experimentation, optional)
+jupyter>=1.0.0
+ipykernel>=6.23.0
