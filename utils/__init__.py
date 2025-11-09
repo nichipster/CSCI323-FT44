@@ -1,6 +1,10 @@
 """
-Utility Package
-Helper functions for Go game logic and data processing
+Utilities Package for AlphaGo Baseline
+
+Contains game environment, MCTS, and helper functions
 """
 
-__all__ = ['go_board', 'sgf_parser']
+from .go_game import GoGame
+from .mcts_neural_rollouts import MCTS, MCTSNode
+
+__all__ = ['GoGame', 'MCTS', 'MCTSNode']

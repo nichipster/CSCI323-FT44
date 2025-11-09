@@ -1,7 +1,10 @@
 """
-CSCI323 AlphaGo Project - Models Package
-Neural network architectures and MCTS implementations
+AlphaGo Baseline Models Package
+
+Contains the policy network and complete baseline system
 """
 
-__version__ = "0.1.0"
-__all__ = ['policy_net', 'mcts', 'baseline_mcts']
+from .policy_net import PolicyNetwork
+from .alphago_baseline import AlphaGoBaseline
+
+__all__ = ['PolicyNetwork', 'AlphaGoBaseline']
