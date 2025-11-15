@@ -1,0 +1,5 @@
+,Baseline,Pure-MCTS,Policy-Only,Random-MCTS
+Baseline,0.0,20.0,3.0,19.0
+Pure-MCTS,0.0,0.0,2.0,14.0
+Policy-Only,17.0,18.0,0.0,20.0
+Random-MCTS,1.0,6.0,0.0,0.0

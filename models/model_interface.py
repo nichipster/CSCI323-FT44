@@ -27,6 +27,8 @@ class BaseModel:
     def __init__(self, name="Base"):
         self.name = name
         self.move_times = []
+        self.inference_engine = None  # For GPU batching
+        self.uses_neural_net = False  # Subclasses override
         
     def select_move(self, game_state):
         """
@@ -43,6 +45,10 @@ class BaseModel:
     def get_model_info(self):
         """Return dictionary with model characteristics"""
         return {"name": self.name}
+    
+    def set_inference_engine(self, engine):
+        """Set batched inference engine for GPU optimization"""
+        self.inference_engine = engine
 
 
 class PolicyOnlyModel(BaseModel):
@@ -56,6 +62,7 @@ class PolicyOnlyModel(BaseModel):
     def __init__(self, policy_net=None, device='cpu'):
         super().__init__(name="Policy-Only")
         self.device = device
+        self.uses_neural_net = True  # Enable GPU batching
         
         if policy_net is None:
             self.policy_net = PolicyNetwork().to(device)
@@ -66,20 +73,32 @@ class PolicyOnlyModel(BaseModel):
     
     def select_move(self, game_state):
         """Select move directly from policy network"""
-        state = game_state.get_state().unsqueeze(0).to(self.device)
-        legal_mask = game_state.get_legal_moves_mask().to(self.device)
+        # Get state representation (always returns CPU tensor)
+        state = game_state.get_state()
         
-        with torch.no_grad():
-            move_probs = self.policy_net(state).squeeze(0)
-            move_probs = move_probs * legal_mask
+        # Use batched inference if available
+        if self.inference_engine is not None:
+            # Convert to numpy for batching
+            state_np = state.cpu().numpy()
+            move_probs = self.inference_engine.request_inference(state_np)
+            move_probs = torch.from_numpy(move_probs).to(self.device)  # FIX: Move to correct device
+        else:
+            # Direct inference
+            state = state.unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                move_probs = self.policy_net(state).squeeze(0)
+        
+        # Apply legal mask - FIX: Ensure mask is on same device
+        legal_mask = game_state.get_legal_moves_mask().to(self.device)
+        move_probs = move_probs * legal_mask
+        
+        if move_probs.sum() == 0:
+            return 81  # Pass if no legal moves
             
-            if move_probs.sum() == 0:
-                return 81  # Pass if no legal moves
-                
-            move_probs = move_probs / move_probs.sum()
-            
-            # Select highest probability move
-            move_idx = torch.argmax(move_probs).item()
+        move_probs = move_probs / move_probs.sum()
+        
+        # Select highest probability move
+        move_idx = torch.argmax(move_probs).item()
         
         return move_idx
     
@@ -141,7 +160,7 @@ class RandomMCTSModel(BaseModel):
         if not root.children:
             return 81  # Pass
         
-        return max(root.children, key=lambda c: c.visits).move
+        return int(max(root.children, key=lambda c: c.visits).move)
     
     def _random_rollout(self, game_state, original_player):
         """Play random moves until game ends"""
@@ -218,7 +237,7 @@ class PureMCTSModel(BaseModel):
         if not root.children:
             return 81
         
-        return max(root.children, key=lambda c: c.visits).move
+        return int(max(root.children, key=lambda c: c.visits).move)
     
     def _pattern_rollout(self, game_state, original_player):
         """Rollout with pattern-based heuristics"""
@@ -301,6 +320,7 @@ class BaselineModel(BaseModel):
         self.device = device
         self.num_simulations = num_simulations
         self.c_param = c_param
+        self.uses_neural_net = True  # Enable GPU batching
         
         if policy_net is None:
             self.policy_net = PolicyNetwork().to(device)
@@ -345,22 +365,30 @@ class BaselineModel(BaseModel):
         if not root.children:
             return 81
         
-        return max(root.children, key=lambda c: c.visits).move
+        return int(max(root.children, key=lambda c: c.visits).move)
     
     def _select_move_by_policy(self, game_state, legal_moves):
         """Use policy network to select from legal moves"""
-        state = game_state.get_state().unsqueeze(0).to(self.device)
+        state = game_state.get_state()
         
-        with torch.no_grad():
-            move_probs = self.policy_net(state).squeeze(0)
-            
-            # Find best legal move
-            best_move = None
-            best_prob = -1
-            for move in legal_moves:
-                if move_probs[move] > best_prob:
-                    best_prob = move_probs[move]
-                    best_move = move
+        # Use batched inference if available
+        if self.inference_engine is not None:
+            state_np = state.cpu().numpy()
+            move_probs = self.inference_engine.request_inference(state_np)
+            move_probs = torch.from_numpy(move_probs).to(self.device)  # FIX: Move to device
+        else:
+            state = state.unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                move_probs = self.policy_net(state).squeeze(0)
+        
+        # Find best legal move - FIX: Work on CPU for indexing
+        move_probs_cpu = move_probs.cpu() if move_probs.is_cuda else move_probs
+        best_move = None
+        best_prob = -1
+        for move in legal_moves:
+            if move_probs_cpu[move] > best_prob:
+                best_prob = move_probs_cpu[move]
+                best_move = move
         
         return best_move if best_move is not None else np.random.choice(legal_moves)
     
@@ -369,19 +397,27 @@ class BaselineModel(BaseModel):
         sim_game = game_state.copy()
         
         while not sim_game.is_game_over():
-            state = sim_game.get_state().unsqueeze(0).to(self.device)
-            legal_mask = sim_game.get_legal_moves_mask().to(self.device)
+            state = sim_game.get_state()
+            legal_mask = sim_game.get_legal_moves_mask()
             
-            with torch.no_grad():
-                move_probs = self.policy_net(state).squeeze(0)
-                move_probs = move_probs * legal_mask
-                
-                if move_probs.sum() == 0:
-                    move = 81
-                else:
-                    move_probs = move_probs / move_probs.sum()
-                    # Sample from distribution
-                    move = torch.multinomial(move_probs, 1).item()
+            # Use batched inference if available
+            if self.inference_engine is not None:
+                state_np = state.cpu().numpy()
+                move_probs = self.inference_engine.request_inference(state_np)
+                move_probs = torch.from_numpy(move_probs).to(self.device)  # FIX: Move to correct device
+            else:
+                state = state.unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    move_probs = self.policy_net(state).squeeze(0)
+            
+            move_probs = move_probs * legal_mask.to(self.device)  # FIX: Ensure mask on device
+            
+            if move_probs.sum() == 0:
+                move = 81
+            else:
+                move_probs = move_probs / move_probs.sum()
+                # Sample from distribution
+                move = torch.multinomial(move_probs, 1).item()
             
             sim_game.make_move(move)
         
