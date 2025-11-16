@@ -141,27 +141,6 @@ tournament = GPUTournament(
 results = tournament.run()
 ```
 
-## Project Constraints
-
-- **Board size**: 9×9 (reduced from 19×19 for computational feasibility)
-- **Training data**: 470 expert games (vs. millions in production systems)
-- **Computational resources**: Single RTX 4060 Ti GPU
-- **Time constraints**: Academic semester project timeline
-
-## Technical Details
-
-### Policy Network Architecture
-```
-Input: (3, 9, 9) state representation
-Conv2D(3→64, 3×3) + BatchNorm + ReLU
-Conv2D(64→128, 3×3) + BatchNorm + ReLU
-Conv2D(128→128, 3×3) + BatchNorm + ReLU
-Conv2D(128→128, 3×3) + BatchNorm + ReLU
-Conv2D(128→256, 3×3) + BatchNorm + ReLU
-Conv2D(256→256, 3×3) + BatchNorm + ReLU
-Conv2D(256→1, 1×1) → Output: 82 move probabilities
-```
-
 ### MCTS Implementation
 - **UCT formula**: exploit + c_param × √(ln(parent.visits) / child.visits)
 - **Exploration constant**: c_param = 1.4
@@ -185,13 +164,3 @@ matplotlib>=3.7.0
 pandas>=2.0.0
 seaborn>=0.12.0
 ```
-
-## License
-
-Academic project for CSCI323 at University of Wollongong.
-
-## References
-
-1. Silver, D., et al. (2016). "Mastering the game of Go with deep neural networks and tree search." *Nature*, 529(7587), 484-489.
-2. Browne, C., et al. (2012). "A survey of Monte Carlo tree search methods." *IEEE TCIAIG*, 4(1), 1-43.
-3. Clark, C., & Storkey, A. (2015). "Training deep convolutional neural networks to play go." *ICML*, 1766-1774.
