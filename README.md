@@ -1,194 +1,197 @@
-# CSCI323 AlphaGo Project - 9×9 Go AI Implementation
+# AlphaGo Methodology for 9×9 Go
 
-**Team:** FT44  
-**Project Type:** Comparative Evaluation (Breadth)  
-**Board Size:** 9×9 Go  
+**CSCI323 Group Project - Team FT44**
+
+A comparative evaluation of Monte Carlo Tree Search and neural network approaches for playing 9×9 Go, inspired by DeepMind's AlphaGo.
 
 ## Project Overview
 
-This project implements and evaluates multiple Go AI approaches on 9×9 boards, comparing traditional Monte Carlo Tree Search (MCTS) with neural network-enhanced methods inspired by DeepMind's AlphaGo.
+This project implements and compares four AI models:
 
-## Models Implemented
-
-1. **Baseline Model:** Policy Network + MCTS (Supervised Learning)
-2. **Pure MCTS:** Traditional Go AI using pattern-based rollouts
-3. **Policy Network Only:** Neural network without search
-4. **Random MCTS:** MCTS with random rollout policy
+1. **Baseline**: Policy Network + MCTS with neural rollouts (AlphaGo-inspired)
+2. **Pure MCTS**: Traditional MCTS with pattern-based heuristics  
+3. **Policy-Only**: Trained policy network without search
+4. **Random MCTS**: MCTS with random rollouts (control baseline)
 
 ## Repository Structure
 
 ```
 CSCI323 FT44/
-├── data/                   # Training and test data
-│   ├── sgf_games/         # Raw SGF game files
-│   ├── processed/         # Preprocessed training data
-│   └── raw/              # Raw downloaded data
-├── models/                # Neural network architectures
-│   ├── __init__.py
-│   ├── policy_net.py     # Policy network definition
-│   ├── mcts.py           # MCTS implementation
-│   └── baseline_mcts.py  # Pure MCTS baseline
-├── training/              # Training scripts
-│   ├── __init__.py
-│   ├── train_policy.py   # Policy network training
-│   ├── configs.py        # Hyperparameters
-│   └── data_loader.py    # Dataset preparation
-├── evaluation/            # Evaluation framework
-│   ├── __init__.py
-│   ├── tournament.py     # Model vs model games
-│   ├── metrics.py        # Performance calculations
-│   └── visualize.py      # Results visualization
-├── utils/                 # Utility functions
-│   ├── __init__.py
-│   ├── go_board.py       # Go game logic wrapper
-│   └── sgf_parser.py     # SGF file parsing
-├── experiments/           # Experimental results
-│   ├── logs/             # Training logs
-│   ├── checkpoints/      # Model checkpoints
-│   └── results/          # Game results and statistics
-├── report/                # Project documentation
-│   ├── figures/          # Plots and diagrams
-│   └── drafts/           # Report drafts
-├── presentation/          # Presentation materials
-├── docs/                  # Additional documentation
-├── requirements.txt       # Python dependencies
-├── .gitignore            # Git ignore rules
-└── README.md             # This file
-```
-
-## Setup Instructions
-
-### Prerequisites
-
-- Python 3.9+
-- CUDA-capable GPU (recommended, RTX 4060 Ti or better)
-- 50GB free disk space
-
-### Installation
-
-```bash
-# Clone repository
-git clone <repository-url>
-cd "CSCI323 FT44"
-
-# Create virtual environment
-conda create -n go_ai python=3.9
-conda activate go_ai
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Download Training Data
-
-```bash
-# Download 9×9 KGS games (instructions in data/README.md)
-python utils/download_data.py --board_size 9 --output data/sgf_games/
+├── data/
+│   ├── sgf_games/           # Expert Go games (470 games from various sources)
+│   └── processed/           # Preprocessed training data
+├── models/
+│   ├── policy_net.py        # CNN policy network architecture
+│   └── model_interface.py   # Four model implementations
+├── training/
+│   ├── sgf_data_loader.py   # SGF parsing and data preparation
+│   └── train_pipeline.py    # Training loop
+├── utils/
+│   ├── go_game.py          # Go game logic and rules
+│   └── mcts_neural_rollouts.py
+├── experiments/
+│   ├── checkpoints/         # Trained model weights
+│   ├── gpu_optimized/       # GPU tournament implementation
+│   └── tournament_results/  # Game results and statistics
+├── train.py                 # Train policy network
+└── run_tournament.py        # Run model comparisons
 ```
 
 ## Quick Start
 
-### 1. Train Policy Network
+### Setup
 
 ```bash
-python training/train_policy.py --epochs 20 --batch_size 64 --gpu 0
+# Install dependencies
+pip install torch numpy sgfmill matplotlib pandas seaborn
+
+# Verify installation
+python -c "import torch; print(f'PyTorch: {torch.__version__}')"
 ```
-
-### 2. Run Evaluation Tournament
-
-```bash
-python evaluation/tournament.py --games 50 --models all
-```
-
-### 3. Generate Results
-
-```bash
-python evaluation/visualize.py --results experiments/results/tournament_results.csv
-```
-
-## Usage Examples
 
 ### Training the Policy Network
 
-```python
-from training.train_policy import train_policy_network
-from training.configs import TRAINING_CONFIG
+The policy network has already been trained on 470 expert games and achieves ~24.4% validation accuracy.
 
-# Train with default configuration
-model, history = train_policy_network(
-    data_dir='data/processed/',
-    config=TRAINING_CONFIG,
-    device='cuda'
+```bash
+# Train from scratch (optional)
+python train.py
+```
+
+**Training configuration:**
+- Dataset: 470 SGF files (9×9 Go)  
+- Architecture: 7-layer CNN (64→128→256 filters)
+- Optimizer: Adam (lr=0.001)
+- Batch size: 64
+- Training time: ~15 minutes on RTX 4060 Ti
+
+### Running Tournaments
+
+Compare all four models in a round-robin tournament:
+
+```bash
+python run_tournament.py
+```
+
+**Tournament settings:**
+- Games per matchup: 20
+- GPU-optimized: Batched neural network inference
+- Parallel game execution
+
+## Model Specifications
+
+| Model | Neural Network | MCTS | Rollout Strategy | Simulations |
+|-------|---------------|------|------------------|-------------|
+| Baseline | ✓ (Policy) | ✓ | Neural network | 100 |
+| Pure MCTS | ✗ | ✓ | Pattern heuristics | 100 |
+| Policy-Only | ✓ (Policy) | ✗ | Direct policy | N/A |
+| Random MCTS | ✗ | ✓ | Random | 100 |
+
+## Key Results
+
+Based on our tournament evaluation:
+
+- **Policy-Only** achieved the highest win rate (85% vs Baseline)
+- **Baseline** underperformed despite theoretical expectations
+- Limited training data (470 games) and weak policy accuracy (24.4%) hindered MCTS performance
+- Pattern-based MCTS outperformed random MCTS significantly
+
+**Key Finding**: Weak policy networks can hurt MCTS performance rather than help it, demonstrating the importance of component quality in hybrid AI systems.
+
+## Using the Models
+
+### Play a Single Game
+
+```python
+from models.model_interface import BaselineModel, PolicyOnlyModel
+from utils.go_game import GoGame
+
+# Initialize models
+model1 = BaselineModel(num_simulations=100)
+model2 = PolicyOnlyModel()
+
+# Create game
+game = GoGame()
+
+# Play until game over
+while not game.is_game_over():
+    if game.current_player == GoGame.BLACK:
+        move = model1.select_move(game)
+    else:
+        move = model2.select_move(game)
+    game.make_move(move)
+
+# Get result
+print(f"Final score: {game._calculate_score()}")
+```
+
+### GPU Optimization
+
+The tournament system supports GPU batching for efficient neural network inference:
+
+```python
+from experiments.gpu_optimized.gpu_tournament import GPUTournament
+
+# Run GPU-optimized tournament
+tournament = GPUTournament(
+    device='cuda',
+    games_per_matchup=20,
+    batch_size=32
 )
+results = tournament.run()
 ```
 
-### Running a Single Game
+## Project Constraints
 
-```python
-from models.policy_net import PolicyNetwork
-from models.mcts import MCTS
-from utils.go_board import GoBoard
+- **Board size**: 9×9 (reduced from 19×19 for computational feasibility)
+- **Training data**: 470 expert games (vs. millions in production systems)
+- **Computational resources**: Single RTX 4060 Ti GPU
+- **Time constraints**: Academic semester project timeline
 
-# Load trained model
-policy_net = PolicyNetwork.load('experiments/checkpoints/best_policy.pth')
+## Technical Details
 
-# Initialize MCTS with policy network
-mcts = MCTS(policy_network=policy_net, simulations=1000)
-
-# Play a game
-board = GoBoard(size=9)
-move = mcts.select_move(board)
+### Policy Network Architecture
+```
+Input: (3, 9, 9) state representation
+Conv2D(3→64, 3×3) + BatchNorm + ReLU
+Conv2D(64→128, 3×3) + BatchNorm + ReLU
+Conv2D(128→128, 3×3) + BatchNorm + ReLU
+Conv2D(128→128, 3×3) + BatchNorm + ReLU
+Conv2D(128→256, 3×3) + BatchNorm + ReLU
+Conv2D(256→256, 3×3) + BatchNorm + ReLU
+Conv2D(256→1, 1×1) → Output: 82 move probabilities
 ```
 
-## Evaluation Metrics
+### MCTS Implementation
+- **UCT formula**: exploit + c_param × √(ln(parent.visits) / child.visits)
+- **Exploration constant**: c_param = 1.4
+- **Simulation limit**: 100 iterations per move
+- **Rollout depth**: Until game termination
 
-- **Win Rate:** Percentage of games won between model pairs
-- **ELO Rating:** Relative strength calculated from tournament results
-- **Move Prediction Accuracy:** % of expert moves correctly predicted
-- **Computational Efficiency:** Average time per move
-- **Playing Style:** Qualitative analysis of strategic patterns
+## Files
 
-## Expected Results
+- **`train.py`**: Train policy network from SGF data
+- **`run_tournament.py`**: Execute round-robin tournament
+- **`play_game.py`**: Play interactive games
+- **`visualize_training.py`**: Plot training curves
 
-| Model | Expected ELO | Move Accuracy | Strength |
-|-------|-------------|---------------|----------|
-| Baseline (Policy+MCTS) | ~2000 | 30-35% | Strong Amateur |
-| Pure MCTS | ~1500 | 12% | Medium |
-| Policy-Only | ~1200 | 30-35% | Medium |
-| Random MCTS | ~800 | 1% | Weak |
+## Requirements
 
-## Project Timeline
-
-- **Nov 7-9:** Setup, data preparation, baseline implementation
-- **Nov 9:** Presentation submission
-- **Nov 10-13:** Full evaluation, analysis
-- **Nov 14-16:** Report writing and final submission
-
-## Team Contributions
-
-| Member | Role | Responsibilities |
-|--------|------|-----------------|
-| Member 1 | Training Lead | GPU training, infrastructure setup |
-| Member 2 | Literature Review | Background theory, related work |
-| Member 3 | MCTS Implementation | Search algorithms, baselines |
-| Member 4 | Evaluation | Tournament framework, metrics |
-| Member 5 | Neural Networks | Architecture, training support |
-| Member 6 | Report Lead | Documentation, integration |
-
-## References
-
-1. Silver, D., et al. (2016). "Mastering the game of Go with deep neural networks and tree search." Nature, 529(7587), 484-489.
-2. Browne, C., et al. (2012). "A survey of Monte Carlo tree search methods." IEEE Transactions on Computational Intelligence and AI in games, 4(1), 1-43.
-3. Clark, C., & Storkey, A. (2015). "Training deep convolutional neural networks to play go." International Conference on Machine Learning, 1766-1774.
+```
+torch>=2.0.0
+numpy>=1.24.0
+sgfmill>=1.1.1
+matplotlib>=3.7.0
+pandas>=2.0.0
+seaborn>=0.12.0
+```
 
 ## License
 
-This project is for educational purposes as part of CSCI323 coursework at University of Wollongong.
+Academic project for CSCI323 at University of Wollongong.
 
-## Contact
+## References
 
-For questions or issues, contact team members via course communication channels.
-
----
-
-*Last Updated: November 7, 2025*
+1. Silver, D., et al. (2016). "Mastering the game of Go with deep neural networks and tree search." *Nature*, 529(7587), 484-489.
+2. Browne, C., et al. (2012). "A survey of Monte Carlo tree search methods." *IEEE TCIAIG*, 4(1), 1-43.
+3. Clark, C., & Storkey, A. (2015). "Training deep convolutional neural networks to play go." *ICML*, 1766-1774.
